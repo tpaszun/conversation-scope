@@ -1,4 +1,4 @@
-var ConversationScope = require('./index.js');
+var ConversationScope = require('../index.js');
 var express = require('express')
 var NodeSession = require('node-session');
 var path = require('path');
