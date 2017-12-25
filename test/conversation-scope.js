@@ -5,7 +5,7 @@ var request = require('supertest')
 describe("Conversation scope", function() {
     var app;
     beforeEach(function () {
-        app = require('./fixtures/app.js');
+        app = require('./fixtures/app.js')();
         app.use(function (req, res, next) {
             ConversationScope.init(req, res, next);
         });
