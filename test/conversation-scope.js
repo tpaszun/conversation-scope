@@ -26,4 +26,57 @@ describe("Conversation scope", function() {
             })
         })
     })
+    describe("manage data between contexts", function() {
+        it("access same data when there is no cid", function(done) {
+            app.use(function (req, res, next) {
+                req.session.begin();
+                req.session.put('views', (req.session.get('views') || 0) + 1)
+                next()
+            })
+            app.get('/', function (req, res, next) {
+                var views = req.session.get('views')
+                res.send(String(views))
+            })
+            var agent = request.agent(app);
+            agent.get('/').expect("1").end(function(err, res) {
+                if (err) return done(err);
+                agent.get('/').expect("2").end(done)
+            })
+        })
+        it("access same data when there is same cid", function(done) {
+            app.use(function (req, res, next) {
+                req.session.begin();
+                req.session.put('views', (req.session.get('views') || 0) + 1)
+                next()
+            })
+            app.get('/', function (req, res, next) {
+                var views = req.session.get('views')
+                res.send(String(views))
+            })
+            var agent = request.agent(app);
+            var cid = '0abc123def0';
+            agent.get('/?cid=' + cid).expect("1").end(function(err, res) {
+                if (err) return done(err);
+                agent.get('/?cid=' + cid).expect("2").end(done)
+            })
+        })
+        it("not access data from another context", function(done) {
+            app.use(function (req, res, next) {
+                req.session.begin();
+                req.session.put('views', (req.session.get('views') || 0) + 1)
+                next()
+            })
+            app.get('/', function (req, res, next) {
+                var views = req.session.get('views')
+                res.send(String(views))
+            })
+            var agent = request.agent(app);
+            var cid = '0abc123def0';
+            agent.get('/?cid=' + cid).expect("1").end(function(err, res) {
+                if (err) return done(err);
+                agent.get('/').expect("1").end(done)
+            })
+        })
+    });
+});
 });
