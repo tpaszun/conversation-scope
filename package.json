@@ -21,6 +21,7 @@
     "url": "https://github.com/koxu1996/conversation-scope"
   },
   "devDependencies": {
+    "async": "^2.6.0",
     "chai": "^4.1.2",
     "mocha": "^4.0.1",
     "supertest": "^3.0.0"

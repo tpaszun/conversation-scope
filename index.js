@@ -38,6 +38,7 @@ ConversationScope.prototype.init = function (request, response, callback) {
     loadInternalData(request)
     addCidGenerator(request)
     proxyMethods(request)
+    xInit(request)
 
     callback();
 };
@@ -166,6 +167,27 @@ function generateKey(name)
     process.stdout.write("} -> return " + key)
     process.stdout.write("\n\n")
     return key
+}
+
+/**
+ * NEW CODE
+ */
+
+function xInit(req)
+{
+    req['cs'] = []
+    req['cs']['put'] = function(key, value) {
+        return
+    }
+    req['cs']['get'] = function(key) {
+        return "";
+    }
+    req['cs']['cidValue'] = function() {
+        return ""
+    }
+    req['cs']['begin'] = function() {
+        return
+    }
 }
 
 module.exports = new ConversationScope();
