@@ -1,193 +1,215 @@
 'use strict';
 
-/**
- * @var {string[]} - list of keys, which should be out of conversation scopes
- */
-var excludedKeys = ['flash.old', 'flash.new']
+var winston = require('winston')
 
-/**
- * @var {string} - name of origin session variable
- */
-var sessionOriginName = 'session'
-
-/**
- * @var {string} - name of variable with conversations' data
- */
-var conversationsDataName = 'conversation_data'
-
-/**
- * @var {string} - name of function generating cid
- */
-var cidGeneratorName = 'generateCid'
+const logger = winston.createLogger({
+  level: 'error',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.Console({format: winston.format.simple()})
+  ]
+});
 
 var ConversationScope = function () {}
 
 /**
- * Init conversations for a given http request - response
- *
- * @param {Object} request - http request object
- * @param {Object} response - http response object
+ * @type {Object} Reference to (current) http request object
+ */
+var request = undefined
+
+/**
+ * @type {Object} Internal data structure (conversations tree and transformed keys)
+ */
+var internalData = require('./tree.js')
+
+/**
+ * @type {Object} Current conversation ID in request
+ */
+var conversationID = undefined
+
+/**
+ * @type {boolean} Determine if conversation is long-running or temporary
+ */
+var conversationLongType = undefined
+
+/**
+ * Preprocess given http request - response
+ * @param {Object} request Http request object
+ * @param {Object} response Http response object
  * @param {function} callback
  */
-ConversationScope.prototype.init = function (request, response, callback) {
-    // check if session is available
-    if (request[sessionOriginName] === undefined) {
-        process.stdout.write("ERROR: No session available! You should use session plugin!\n")
-    }
+ConversationScope.prototype.preprocess = function (req, res, callback) {
+    // save reference to request
+    request = req
 
-    loadInternalData(request)
-    addCidGenerator(request)
-    proxyMethods(request)
-    xInit(request)
+    logger.debug('Preprocessing...')
 
-    callback();
+    loadInternalData()
+
+    addMethods()
+    initCoversation()
+
+    callback()
 };
 
-function proxyMethods(request)
-{
-    process.stdout.write("proxyMethods({request}) {\n")
-    request[sessionOriginName] = new Proxy(request[sessionOriginName], {
-        get: function(target, name, receiver) {
-            if (name === "put" && name in target.__proto__) {
-                return function(...args) {
-                    process.stdout.write("request.session.put(" + args[0] + ", " + args[1] + ") {\n")
-                    var forceCreate = false
+/**
+ * Postprocess given http request - response
+ * @param {Object} request Http request object
+ * @param {Object} response Http response object
+ * @param {function} callback
+ */
+ConversationScope.prototype.postprocess = function (req, res, callback) {
+    logger.debug('Postprocessing...')
 
-                    if (excludedKeys.indexOf(key) === -1) {
-                        forceCreate = true
-                    }
-
-                    //get or create transformed key
-                    var key = getTransformedKey(request, args[0], forceCreate)
-                    args[0] = key
-
-                    //save internal data structure
-                    process.stdout.write("Saving internal data:")
-                    process.stdout.write(JSON.stringify(request[sessionOriginName][conversationsDataName]) + "\n\n")
-                    target[name](conversationsDataName, JSON.stringify(request[sessionOriginName][conversationsDataName]))
-
-                    //set value
-                    var ret =  target[name](args[0], args[1])
-                    process.stdout.write("} -> return " + ret)
-                    process.stdout.write("\n\n")
-                    return ret
-                }
-            } else if (name === "get" && name in target.__proto__) { // assume method live on the prototype
-                return function(...args) {
-                    process.stdout.write("request.session.get(" + args[0] + ", " + args[1] + ") {\n")
-                    var key = getTransformedKey(request, args[0])
-                    var data = target[name](key, args[1])
-                    process.stdout.write("} -> return " + data)
-                    process.stdout.write("\n\n")
-                    return data
-                }
-            } else if (name === "begin") {
-                return function() {
-                    process.stdout.write("request.session.begin() {\n")
-                    var cid = request.query.cid
-                    if (cid !== undefined) {
-                        loadCoversation(request, cid)
-                    }
-                    process.stdout.write("}")
-                    process.stdout.write("\n\n")
-                    return cid
-                }
-            } else {
-                return Reflect.get(target, name, receiver)
-            }
-        },
-    });
-    process.stdout.write("} -> ok.\n\n")
-}
-
-function _arrayifyMap(m)
-{
-    if (m.constructor === Map) {
-        return [...m].map(([v,k]) => [_arrayifyMap(v), _arrayifyMap(k)])
-    }
-    return m
-}
-
-function loadCoversation(req, cid)
-{
-    process.stdout.write("loadCoversation({request}, " + cid + ") {\n")
-    //create conversation if necessary
-    if (req[sessionOriginName][conversationsDataName][cid] === undefined) {
-        req[sessionOriginName][conversationsDataName][cid] = {}
-    }
-    req.currentScope = cid
-    process.stdout.write("} -> request.currentScope = " + cid)
-    process.stdout.write("\n\n")
-}
-
-function addCidGenerator(request)
-{
-    process.stdout.write("addCidGenerator({request}) {\n")
-    request[sessionOriginName][cidGeneratorName] = function(name) {
-        var cid = "y"+String(Math.floor(Math.random() * 9e5))
-        return cid
-    }
-    process.stdout.write("} -> request." + sessionOriginName + "." + cidGeneratorName + " = function(name) {..}")
-    process.stdout.write("\n\n")
-}
-
-function loadInternalData(request)
-{
-    process.stdout.write("loadInternalData({request}) {\n")
-    var saved_data = request[sessionOriginName].get(conversationsDataName);
-    if (saved_data !== undefined) {
-        request[sessionOriginName][conversationsDataName] = JSON.parse(saved_data)
-    } else {
-        request[sessionOriginName][conversationsDataName] = {};
-    }
-    process.stdout.write("} -> request." + sessionOriginName + "." + conversationsDataName + " = " + JSON.stringify(request[sessionOriginName][conversationsDataName]))
-    process.stdout.write("\n\n")
-}
-
-function getTransformedKey(request, name, create = false)
-{
-    process.stdout.write("getTransformedKey({request}, " + name + ", " + create + ") {\n")
-    key = name
-    if (request.currentScope !== undefined) {
-        var key = request[sessionOriginName][conversationsDataName][request.currentScope][name]
-        if (key === undefined && create === true) {
-            key = generateKey(name)
-            request[sessionOriginName][conversationsDataName][request.currentScope][name] = key
+    if (conversationLongType === false) {
+        logger.debug('Destroy all data from temporary conversation')
+        var keys = internalData.getTransformedKeys(conversationID)
+        for (var i in keys) {
+            var transformedKey = keys[i]
+            logger.debug('Unset ' + i + ' (' + transformedKey + ')')
+            request.session.put(transformedKey, "")
         }
     }
-    process.stdout.write("} -> return " + key)
-    process.stdout.write("\n\n")
-    return key
+
+    if (callback) {
+        callback()
+    }
+};
+
+/**
+ * Load internal data structure from session-store
+ */
+function loadInternalData() {
+    var data = request.session.get('csinternal')
+    if (data !== undefined) {
+        logger.debug('Load internal data from json: ' + data )
+        internalData.load(data)
+    }
 }
 
-function generateKey(name)
+/**
+ * Save internal data structure to session-store
+ */
+function saveInternalData() {
+    var str = internalData.export()
+    logger.debug('Saving internal data: ' + str)
+    request.session.put('csinternal', str)
+}
+
+/**
+ * Add conversation base methods to request, like begin(), get() or end()
+ */
+function addMethods()
 {
-    process.stdout.write("generateKey(" + name + ") {\n")
+    var cs = []
+    cs['put'] = function(key, value) {
+        var transformedKey = getTransformedKeyForPut(key)
+        var ret = request.session.put(transformedKey, value)
+        logger.debug('Putting ' + value + ' under ' + transformedKey + ' (' + key + ')')
+        return ret
+    }
+    cs['get'] = function(key) {
+        var transformedKey = getTransformedKeyForGet(key)
+        var data = request.session.get(transformedKey)
+        return data
+    }
+    cs['cidValue'] = function() {
+        return conversationID
+    }
+    cs['begin'] = function({join = false, nested = false} =  {}) {
+        if (nested === true) {
+            if (conversationLongType === false) {
+                throw new Error('Cannot create nested conversation in temporary one')
+            }
+            logger.debug('Creating nested conversation and adding it to internal data')
+            var oldConversationID = conversationID
+            conversationID = generateRandomID();
+            internalData.addConversation(conversationID, oldConversationID)
+            saveInternalData()
+        } else if (join === false) {
+            if (conversationLongType === true) {
+                throw new Error('Conversation is already long-running')
+            }
+        }
+        conversationLongType = true
+        return
+    }
+    request['cs'] = cs
+}
+
+/**
+ * Get transformed key from internal data in order to make GET
+ * @param {String} key Key to be transformed
+ * @return {String|null} Transformed key
+ */
+function getTransformedKeyForGet(key) {
+    logger.debug('Getting transformed key (get) for ' + key)
+    var recursive = true
+    var transformedKey = internalData.getTransformedKey(conversationID, key, recursive)
+    return transformedKey
+}
+
+/**
+ * Get transformed key from internal data in order to make PUT
+ * (key is created if not exist)
+ * @param {String} key Key to be transformed
+ * @return {String|null} Transformed key
+ */
+function getTransformedKeyForPut(key) {
+    logger.debug('Getting transformed key (put) for ' + key)
+    var recursive = false
+    var transformedKey = internalData.getTransformedKey(conversationID, key, recursive)
+    // create it if not exists
+    if (transformedKey === null) {
+        transformedKey = generateRandomKey(key)
+        // update data structure
+        internalData.addTransformedKey(conversationID, key, transformedKey)
+        saveInternalData()
+    }
+    return transformedKey
+}
+
+/**
+ * Generate random key
+ * @param {String} seed Seed
+ * @return {String} Random key
+ */
+function generateRandomKey(seed)
+{
     var key = "x"+String(Math.floor(Math.random() * 9e5))
-    process.stdout.write("} -> return " + key)
-    process.stdout.write("\n\n")
     return key
 }
 
 /**
- * NEW CODE
+ * Init conversation - create or load basing on 'cid'
+ * @param {String} seed Seed
+ * @return {String} Random key
  */
+function initCoversation() {
+    var cid = request.query.cid
+    if (cid !== undefined) {
+        logger.debug('Load long-running conversation ' + cid)
+        conversationID = cid
+        conversationLongType = true
+    } else {
+        conversationID = generateRandomID();
+        logger.debug('Create temporary conversation ' + conversationID
+                    + ' and add it to internalData')
+        conversationLongType = false
+        internalData.addConversation(conversationID)
+        saveInternalData()
+    }
+}
 
-function xInit(req)
+/**
+ * Generate random ID
+ * @param {String} seed Seed
+ * @return {String} Random ID
+ */
+function generateRandomID(seed)
 {
-    req['cs'] = []
-    req['cs']['put'] = function(key, value) {
-        return
-    }
-    req['cs']['get'] = function(key) {
-        return "";
-    }
-    req['cs']['cidValue'] = function() {
-        return ""
-    }
-    req['cs']['begin'] = function() {
-        return
-    }
+    var id = "c"+String(Math.floor(Math.random() * 9e5))
+    return id
 }
 
 module.exports = new ConversationScope();

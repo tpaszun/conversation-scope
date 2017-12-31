@@ -11,7 +11,8 @@ describe("Conversation scope", function() {
     beforeEach(function () {
         app = require('./fixtures/app.js')()
         app.use(function (req, res, next) {
-            ConversationScope.init(req, res, next)
+            ConversationScope.preprocess(req, res, next)
+            res.on('finish', ConversationScope.postprocess);
         })
     })
 
