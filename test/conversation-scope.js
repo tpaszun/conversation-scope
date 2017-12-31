@@ -53,7 +53,7 @@ describe("Conversation scope", function() {
             },
             function(prevRes, cb) {
                 agent.get('/req2').expect(function(res) {
-                    if (!res.text) throw new Error("data should be undefined")
+                    if (res.text) throw new Error("data should be undefined")
                 }).end(cb)
             },
         ], done)
@@ -235,15 +235,11 @@ describe("Conversation scope", function() {
         })
         app.get('/req2', function (req, res, next) {
             req.cs.begin({nested: true})
+            req.cs.put('test', 'x011x')
             var cid = req.cs.cidValue()
             res.send(cid)
         })
         app.get('/req3', function (req, res, next) {
-            req.cs.put('test', 'x011x')
-            var retrievedValue = req.cs.get('test')
-            res.send(retrievedValue)
-        })
-        app.get('/req4', function (req, res, next) {
             var retrievedValue = req.cs.get('test')
             res.send(retrievedValue)
         })
@@ -251,7 +247,7 @@ describe("Conversation scope", function() {
         var firstCid = undefined
         async.waterfall([
             function(cb) {
-                agent.get('/req1').expect(200).end(cb)
+                agent.get('/req1').expect(200, cb)
             },
             function(prevRes, cb) {
                 firstCid = prevRes.text
