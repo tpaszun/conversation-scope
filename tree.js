@@ -165,7 +165,6 @@ Tree.prototype.getTransformedKey = function (cid, key, recursive) {
     if (node === null) {
         throw new Error("Conversation with cid " + cid + " does not exist")
     }
-    console.log("Found node:", node)
     var transformatedKey = null
     while (true) {
         if (node['transformedKeys'][key] !== undefined) {
@@ -176,7 +175,6 @@ Tree.prototype.getTransformedKey = function (cid, key, recursive) {
             break
         }
         node = node.parent
-        console.log("one level up..")
     }
     return transformatedKey
 }
@@ -221,17 +219,6 @@ Tree.prototype.export = function () {
         return value
     })
     return str
-}
-
-/* ONLY FOR DEBUG */
-Tree.prototype.show = function () {
-    return JSON.stringify(data, function(key, value) {
-        if (key == 'parent') {
-            return "#Reference"
-        } else {
-            return value
-        }
-    })
 }
 
 module.exports = new Tree();
