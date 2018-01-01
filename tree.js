@@ -17,6 +17,14 @@ function init() {
 }
 
 /**
+ * Restore initial data strucutre
+ */
+function reset() {
+    data = undefined
+    init()
+}
+
+/**
  * Create node object with setted parent (which may be inserted in tree)
  *
  * @param {object} [parent=null] Reference to parent node
@@ -81,26 +89,6 @@ function searchLoop(node, cid) {
 }
 
 /**
- * Recursively get all cids for provided nodes
- *
- * @param {object[]} nodes Nodes
- * @param {boolean} recursive Whether search to down
- */
-function getSubCidsLoop(mainNode, recursive) {
-    var subcids, result = []
-    var node, data = mainNode['conversations']
-    for (var i in data) {
-        node = data[i]
-        result.push(node['cid'])
-        if (recursive === true) {
-            subcids = getSubCidsLoop(node)
-            result = result.concat(subcids)
-        }
-    }
-    return result
-}
-
-/**
  * Add conversation to tree
  *
  * @param {string} cid Cid of new conversation
@@ -116,21 +104,32 @@ Tree.prototype.addConversation = function (cid, parentCid = 'root') {
 }
 
 /**
- * Lookdown for subconversations' cids
+ * Remove data from tree
  *
- * @param {string} cid Cid
- * @param {boolean} [recursive=false] Whether search to down
- * @return {string[]} Subconversations' cids
- *
- * @throws Will throw an error if conversation does not exist
+ * @param {string} [cid=root] Cid of conversation to remove
+ * @return {string|null} Cid of conversation which can be resumed
  */
-Tree.prototype.getSubCids = function (cid, recursive = false) {
-    var node = search(cid)
+Tree.prototype.remove = function (cid = 'root') {
+    if (cid === 'root') {
+        reset()
+        return null
+    }
+    var node = search(cid);
     if (node === null) {
         throw new Error("Conversation with cid " + cid + " does not exist")
     }
-    var conversations = getSubCidsLoop(node, recursive)
-    return conversations
+    var parentNode = node.parent
+    // this look complex, but it is necessary for keeping correct references
+    parentNode['conversations'] = parentNode['conversations'].filter(
+        function(el) {
+            return el.cid !== cid;
+        }
+    );
+    // not allow to resume root conv.
+    if (parentNode.cid === 'root') {
+        return null
+    }
+    return parentNode.cid
 }
 
 /**
@@ -155,7 +154,7 @@ Tree.prototype.addTransformedKey = function (cid, key, transformedKey) {
  *
  * @param {string} cid Cid
  * @param {string} key Key
- * @param {boolean} recursive Whether search recursively to top
+ * @param {boolean} recursive Whether search recursively to BOTTOM (root)
  * @return {string|null} Tranformed key
  *
  * @throws Will throw an error if conversation does not exist
@@ -180,19 +179,45 @@ Tree.prototype.getTransformedKey = function (cid, key, recursive) {
 }
 
 /**
- * Fetch all transformated keys for provided cid
+ * Recursively fetch all transformated keys for provided cid
  *
  * @param {string} cid Cid
  * @return {string[]} Tranformed keys
  *
  * @throws Will throw an error if conversation does not exist
  */
-Tree.prototype.getTransformedKeys = function (cid) {
+Tree.prototype.getTransformedKeysToTop = function (cid) {
     var node = search(cid)
     if (node == null) {
         throw new Error("Conversation with cid " + cid + " does not exist")
     }
-    return node['transformedKeys']
+    var tranformedKeys = getTransformedKeysToTopLoop(node)
+    return tranformedKeys
+}
+
+/**
+ * Internal function for recursive getting transformed keys for provided node
+ *
+ * @param {object} mainNode Node
+ * @return {string[]} Array of transformated keys
+ */
+function getTransformedKeysToTopLoop(mainNode) {
+    var data, result = []
+    data = mainNode['transformedKeys']
+    // add keys to result array
+    for (var property in data) {
+        if (data.hasOwnProperty(property)) {
+            result.push(data[property])
+        }
+    }
+    // check subconversations
+    var subKeys
+    data = mainNode['conversations']
+    for (var i in data) {
+        subKeys = getTransformedKeysToTopLoop(data[i])
+        result = result.concat(subKeys)
+    }
+    return result
 }
 
 /**

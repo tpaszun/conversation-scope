@@ -60,21 +60,32 @@ ConversationScope.prototype.preprocess = function (req, res, callback) {
  */
 ConversationScope.prototype.postprocess = function (req, res, callback) {
     logger.debug('Postprocessing...')
+    logger.debug('')
 
     if (conversationLongType === false) {
         logger.debug('Destroy all data from temporary conversation')
-        var keys = internalData.getTransformedKeys(conversationID)
-        for (var i in keys) {
-            var transformedKey = keys[i]
-            logger.debug('Unset ' + i + ' (' + transformedKey + ')')
-            request.session.put(transformedKey, "")
-        }
+        unsetAllKeys(conversationID)
+        internalData.remove(conversationID)
+        saveInternalData()
     }
 
     if (callback) {
         callback()
     }
 };
+
+/**
+ * Recursively unset keys for provided cid
+ * @param {string} cid Cid
+ */
+function unsetAllKeys(cid) {
+    var keys = internalData.getTransformedKeysToTop(cid)
+    for (var i in keys) {
+        var transformedKey = keys[i]
+        logger.debug('Unset ' + i + ' (' + transformedKey + ')')
+        request.session.put(transformedKey, "")
+    }
+}
 
 /**
  * Load internal data structure from session-store
@@ -116,7 +127,7 @@ function addMethods()
     cs['cidValue'] = function() {
         return conversationID
     }
-    cs['begin'] = function({join = false, nested = false} =  {}) {
+    cs['begin'] = function({join = false, nested = false} = {}) {
         if (nested === true) {
             if (conversationLongType === false) {
                 throw new Error('Cannot create nested conversation in temporary one')
@@ -135,6 +146,22 @@ function addMethods()
         return
     }
     cs['end'] = function({root = false} = {}) {
+        if (conversationLongType === false) {
+            throw new Error('Cannot end temporary conversation')
+        }
+        unsetAllKeys(conversationID)
+        var newConversationID = undefined
+        if (root === true) {
+            newConversationID = internalData.remove()
+        } else {
+            newConversationID = internalData.remove(conversationID)
+        }
+        saveInternalData()
+        if (newConversationID === null) {
+            initTemporaryConversation()
+        } else {
+            conversationID = newConversationID
+        }
     }
     request['cs'] = cs
 }
@@ -194,13 +221,20 @@ function initCoversation() {
         conversationID = cid
         conversationLongType = true
     } else {
-        conversationID = generateRandomID();
-        logger.debug('Create temporary conversation ' + conversationID
-                    + ' and add it to internalData')
-        conversationLongType = false
-        internalData.addConversation(conversationID)
-        saveInternalData()
+        initTemporaryConversation()
     }
+}
+
+/**
+ * Create random conversation and update internal data
+ */
+function initTemporaryConversation() {
+    conversationID = generateRandomID();
+    logger.debug('Create temporary conversation ' + conversationID
+                + ' and add it to internalData')
+    conversationLongType = false
+    internalData.addConversation(conversationID)
+    saveInternalData()
 }
 
 /**
