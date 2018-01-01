@@ -263,4 +263,180 @@ describe("Conversation scope", function() {
             },
         ], done)
     })
+
+    it('throw error if calling end() when there is no long-running conversation', function(done) {
+        app.get('/req1', function (req, res, next) {
+            try {
+                req.cs.end()
+            } catch (e) {
+                res.sendStatus(500)
+                return
+            }
+            res.sendStatus(200)
+        })
+        var agent = request.agent(app)
+        agent.get('/req1').expect(function(res) {
+            if (res.status !== 500) throw new Error("there should be internal server error")
+        }).end(done)
+    })
+
+    it('pop conversation on end() and resume outer one', function(done) {
+        app.get('/req1', function (req, res, next) {
+            req.cs.begin()
+            req.cs.put('test', 'x012x')
+            var cid = req.cs.cidValue()
+            res.send(cid)
+        })
+        app.get('/req2', function (req, res, next) {
+            req.cs.begin({nested: true})
+            req.cs.put('test', 'x013x')
+            var cid = req.cs.cidValue()
+            res.send(cid)
+        })
+        app.get('/req3', function (req, res, next) {
+            req.cs.end()
+            var retrievedValue = req.cs.get('test')
+            res.send(retrievedValue)
+        })
+        var agent = request.agent(app)
+        async.waterfall([
+            function(cb) {
+                agent.get('/req1').expect(200, cb)
+            },
+            function(prevRes, cb) {
+                var cid = prevRes.text
+                agent.get('/req2?cid=' + cid).end(cb)
+            },
+            function(prevRes, cb) {
+                var cid = prevRes.text
+                agent.get('/req3?cid=' + cid).expect('x012x', cb)
+            },
+        ], done)
+    })
+
+    it('destroy all descendant conversations with end()', function(done) {
+        app.get('/req1', function (req, res, next) {
+            req.cs.begin()
+            req.cs.put('test', 'x014x')
+            var cid = req.cs.cidValue()
+            res.send(cid)
+        })
+        app.get('/req2', function (req, res, next) {
+            req.cs.begin({nested: true})
+            req.cs.put('test', 'x015x')
+            var cid = req.cs.cidValue()
+            res.send(cid)
+        })
+        app.get('/req3', function (req, res, next) {
+            req.cs.begin({nested: true})
+            req.cs.put('test', 'x016x')
+            var cid = req.cs.cidValue()
+            res.send(cid)
+        })
+        app.get('/req4', function (req, res, next) {
+            req.cs.end()
+            res.sendStatus(200)
+        })
+        app.get('/req5', function (req, res, next) {
+            var retrievedValue = undefined
+            try {
+                retrievedValue = req.cs.get('test')
+            } catch (e) {
+                res.sendStatus(500)
+                return
+            }
+            res.send(retrievedValue)
+        })
+        var agent = request.agent(app)
+        var cids = []
+        async.waterfall([
+            function(cb) {
+                agent.get('/req1').expect(200, cb)
+            },
+            function(prevRes, cb) {
+                cids.push(prevRes.text)
+                agent.get('/req2?cid=' + cids[0]).end(cb)
+            },
+            function(prevRes, cb) {
+                cids.push(prevRes.text)
+                agent.get('/req3?cid=' + cids[1]).end(cb)
+            },
+            function(prevRes, cb) {
+                cids.push(prevRes.text)
+                agent.get('/req4?cid=' + cids[1]).expect(200, cb)
+            },
+            function(prevRes, cb) {
+                agent.get('/req5?cid=' + cids[0]).expect('x014x', cb)
+            },
+            function(prevRes, cb) {
+                agent.get('/req5?cid=' + cids[1]).expect(500, cb)
+            },
+            function(prevRes, cb) {
+                agent.get('/req5?cid=' + cids[2]).expect(500, cb)
+            },
+        ], done)
+    })
+
+    it('destroy whole tree on end({root: true})', function(done) {
+        app.get('/req1', function (req, res, next) {
+            req.cs.begin()
+            req.cs.put('test', 'x014x')
+            var cid = req.cs.cidValue()
+            res.send(cid)
+        })
+        app.get('/req2', function (req, res, next) {
+            req.cs.begin({nested: true})
+            req.cs.put('test', 'x015x')
+            var cid = req.cs.cidValue()
+            res.send(cid)
+        })
+        app.get('/req3', function (req, res, next) {
+            req.cs.begin({nested: true})
+            req.cs.put('test', 'x016x')
+            var cid = req.cs.cidValue()
+            res.send(cid)
+        })
+        app.get('/req4', function (req, res, next) {
+            req.cs.end({root: true})
+            res.sendStatus(200)
+        })
+        app.get('/req5', function (req, res, next) {
+            var retrievedValue = undefined
+            try {
+                retrievedValue = req.cs.get('test')
+            } catch (e) {
+                res.sendStatus(500)
+                return
+            }
+            res.send(retrievedValue)
+        })
+        var agent = request.agent(app)
+        var cids = []
+        async.waterfall([
+            function(cb) {
+                agent.get('/req1').expect(200, cb)
+            },
+            function(prevRes, cb) {
+                cids.push(prevRes.text)
+                agent.get('/req2?cid=' + cids[0]).end(cb)
+            },
+            function(prevRes, cb) {
+                cids.push(prevRes.text)
+                agent.get('/req3?cid=' + cids[1]).end(cb)
+            },
+            function(prevRes, cb) {
+                cids.push(prevRes.text)
+                agent.get('/req4?cid=' + cids[1]).expect(200, cb)
+            },
+            function(prevRes, cb) {
+                agent.get('/req5?cid=' + cids[0]).expect(500, cb)
+            },
+            function(prevRes, cb) {
+                agent.get('/req5?cid=' + cids[1]).expect(500, cb)
+            },
+            function(prevRes, cb) {
+                agent.get('/req5?cid=' + cids[2]).expect(500, cb)
+            },
+        ], done)
+    })
 })

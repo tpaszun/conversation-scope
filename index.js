@@ -134,6 +134,8 @@ function addMethods()
         conversationLongType = true
         return
     }
+    cs['end'] = function({root = false} = {}) {
+    }
     request['cs'] = cs
 }
 
