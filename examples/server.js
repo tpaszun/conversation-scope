@@ -14,19 +14,25 @@ app.use(function (req, res, next) {
 });
 
 app.use(function (req, res, next) {
-    ConversationScope.init(req, res, next);
+    ConversationScope.preprocess(req, res, next)
+    res.on('finish', ConversationScope.postprocess);
 });
 
+app.get('/begin', function (req, res, next) {
+    req.cs.begin()
+    var cid = req.cs.cidValue()
+    res.redirect('/?cid=' + cid)
+})
+
 app.use(function (req, res, next) {
-    req.session.begin();
-    req.session.put('views', (req.session.get('views') || 0) + 1)
+    req.cs.put('views', (req.cs.get('views') || 0) + 1)
     next()
 })
 
 app.get('/', function (req, res, next) {
     res.render('index', {
-        number_views: req.session.get('views'),
-        cid: req.session.generateCid()
+        number_views: req.cs.get('views'),
+        cid: req.cs.cidValue()
     });
 })
 
