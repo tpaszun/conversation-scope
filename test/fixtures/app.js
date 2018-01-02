@@ -32,7 +32,17 @@ function makeApp()
         session.startSession(req, res, next);
     })
 
-    app.use(ConversationScope.run())
+    app.use(function (req, res, next) {
+        var config = {
+            getCallback: function(key) {
+                return req.session.get(key)
+            },
+            putCallback: function(key, value) {
+                return req.session.put(key, value)
+            }
+        }
+        ConversationScope.run(req, res, next, config)
+    })
 
     app.get('/', function (req, res, next) {
         var _result, op, error

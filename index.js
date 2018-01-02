@@ -18,6 +18,16 @@ var ConversationScope = function () {}
 var request = undefined
 
 /**
+ * @type {function} Function which will be called internally to get data from session
+ */
+var getCallback = undefined
+
+/**
+ * @type {function} Function which will be called internally to put data to session
+ */
+var putCallback = undefined
+
+/**
  * @type {Object} Internal data structure (conversations tree and transformed keys)
  */
 var internalData = require('./tree.js')
@@ -38,16 +48,17 @@ var conversationLongType = undefined
  * @param {object} options Module options
  * @return {function} middleware for using ConversationScope
  */
-ConversationScope.prototype.run = function (options) {
-    return function (req, res, next) {
-        // load proxy
-        var prox = require('./proxies/NodeSession.js');
-        prox(req.session, req.cs)
-        // add postprocessing middleware
-        res.on('finish', postprocess);
-        // run preprocessing
-        preprocess(req, res, next)
+ConversationScope.prototype.run = function (req, res, next, config) {
+    if (!config.getCallback || !config.putCallback) {
+        throw new Error("Configuration must specify get and put callbacks")
     }
+    // save callbacks
+    getCallback = config.getCallback
+    putCallback = config.putCallback
+    // add postprocessing middleware
+    res.on('finish', postprocess);
+    // run preprocessing
+    preprocess(req, res, next)
 }
 
 /**
@@ -104,7 +115,7 @@ function unsetAllKeys(cid) {
     for (var i in keys) {
         var transformedKey = keys[i]
         logger.debug('Unset ' + i + ' (' + transformedKey + ')')
-        request.session.put(transformedKey, "")
+        putCallback(transformedKey, "")
     }
 }
 
@@ -112,7 +123,7 @@ function unsetAllKeys(cid) {
  * Load internal data structure from session-store
  */
 function loadInternalData() {
-    var data = request.session.get('csinternal')
+    var data = getCallback('csinternal')
     if (data !== undefined) {
         logger.debug('Load internal data from json: ' + data )
         internalData.load(data)
@@ -125,7 +136,7 @@ function loadInternalData() {
 function saveInternalData() {
     var str = internalData.export()
     logger.debug('Saving internal data: ' + str)
-    request.session.put('csinternal', str)
+    putCallback('csinternal', str)
 }
 
 /**
@@ -136,13 +147,13 @@ function addMethods()
     var cs = []
     cs['put'] = function(key, value) {
         var transformedKey = getTransformedKeyForPut(key)
-        var ret = request.session.put(transformedKey, value)
+        var ret = putCallback(transformedKey, value)
         logger.debug('Putting ' + value + ' under ' + transformedKey + ' (' + key + ')')
         return ret
     }
     cs['get'] = function(key) {
         var transformedKey = getTransformedKeyForGet(key)
-        var data = request.session.get(transformedKey)
+        var data = getCallback(transformedKey)
         return data
     }
     cs['cidValue'] = function() {
