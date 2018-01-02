@@ -50,9 +50,15 @@ function makeApp()
                     setResult(_result)
                     break;
                 case 'put':
+                    if (op[1] === undefined || op[2] === undefined) {
+                        throw new Error("Missing arguments for put()")
+                    }
                     req.cs.put(op[1], op[2])
                     break;
                 case 'get':
+                    if (op[1] === undefined) {
+                        throw new Error("Missing arguments for get()")
+                    }
                     try {
                         _result = req.cs.get(op[1])
                     } catch (e) {
@@ -62,18 +68,24 @@ function makeApp()
                     break;
                 case 'begin':
                     var type = undefined, value = undefined
-                    if (op[1]) {
+                    if (op[1] !== undefined) {
                         arg = op[1].split("=")
+                        // check if arguments are correct
+                        if (["join","nested"].indexOf(arg[0]) === -1 || arg[1] === undefined) {
+                            throw new Error("Incorrect arguments for begin()")
+                        }
                         type = arg[0]
-                        value = arg[1]
+                        value = (arg[1] == 'true')
                     }
                     try {
-                        if (type === "join" && value === "true") {
-                            req.cs.begin({join: true})
-                        } else if (type === "nested" && value === "true") {
-                            req.cs.begin({nested: true})
-                        } else {
+                        if (type === undefined) {
                             req.cs.begin()
+                        } else if (type === "join") {
+                            req.cs.begin({join: value})
+                        } else if (type === "nested") {
+                            req.cs.begin({nested: value})
+                        } else {
+
                         }
                     } catch (e) {
                         error = e
@@ -81,14 +93,18 @@ function makeApp()
                     break
                 case 'end':
                     var type = undefined, value = undefined
-                    if (op[1]) {
+                    if (op[1] !== undefined) {
                         arg = op[1].split("=")
+                        // check if arguments are correct
+                        if (["root"].indexOf(arg[0]) === -1 || arg[1] === undefined) {
+                            throw new Error("Incorrect arguments for end()")
+                        }
                         type = arg[0]
-                        value = arg[1]
+                        value = (arg[1] == 'true')
                     }
                     try {
-                        if (type === "root" && value === "true") {
-                            req.cs.end({root: true})
+                        if (type === "root") {
+                            req.cs.end({root: value})
                         } else {
                             req.cs.end()
                         }
