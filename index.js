@@ -33,12 +33,31 @@ var conversationID = undefined
 var conversationLongType = undefined
 
 /**
+ * Allow to create module middleware with various options
+ *
+ * @param {object} options Module options
+ * @return {function} middleware for using ConversationScope
+ */
+ConversationScope.prototype.run = function (options) {
+    return function (req, res, next) {
+        // load proxy
+        var prox = require('./proxies/NodeSession.js');
+        prox(req.session, req.cs)
+        // add postprocessing middleware
+        res.on('finish', postprocess);
+        // run preprocessing
+        preprocess(req, res, next)
+    }
+}
+
+/**
  * Preprocess given http request - response
+ *
  * @param {Object} request Http request object
  * @param {Object} response Http response object
  * @param {function} callback
  */
-ConversationScope.prototype.preprocess = function (req, res, callback) {
+function preprocess (req, res, callback) {
     // save reference to request
     request = req
 
@@ -54,11 +73,12 @@ ConversationScope.prototype.preprocess = function (req, res, callback) {
 
 /**
  * Postprocess given http request - response
+ *
  * @param {Object} request Http request object
  * @param {Object} response Http response object
  * @param {function} callback
  */
-ConversationScope.prototype.postprocess = function (req, res, callback) {
+function postprocess(req, res, callback) {
     logger.debug('Postprocessing...')
     logger.debug('')
 
@@ -76,6 +96,7 @@ ConversationScope.prototype.postprocess = function (req, res, callback) {
 
 /**
  * Recursively unset keys for provided cid
+ *
  * @param {string} cid Cid
  */
 function unsetAllKeys(cid) {
@@ -168,6 +189,7 @@ function addMethods()
 
 /**
  * Get transformed key from internal data in order to make GET
+ *
  * @param {String} key Key to be transformed
  * @return {String|null} Transformed key
  */
@@ -200,6 +222,7 @@ function getTransformedKeyForPut(key) {
 
 /**
  * Generate random key
+ *
  * @param {String} seed Seed
  * @return {String} Random key
  */
@@ -211,6 +234,7 @@ function generateRandomKey(seed)
 
 /**
  * Init conversation - create or load basing on 'cid'
+ *
  * @param {String} seed Seed
  * @return {String} Random key
  */
@@ -239,6 +263,7 @@ function initTemporaryConversation() {
 
 /**
  * Generate random ID
+ *
  * @param {String} seed Seed
  * @return {String} Random ID
  */

@@ -30,12 +30,9 @@ function makeApp()
 
     app.use(function (req, res, next) {
         session.startSession(req, res, next);
-    });
-
-    app.use(function (req, res, next) {
-        ConversationScope.preprocess(req, res, next)
-        res.on('finish', ConversationScope.postprocess);
     })
+
+    app.use(ConversationScope.run())
 
     app.get('/', function (req, res, next) {
         var _result, op, error
