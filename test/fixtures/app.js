@@ -1,3 +1,20 @@
+var result
+
+function unsetResult() {
+    result = undefined
+}
+
+function setResult(value) {
+    if (result !== undefined) {
+        throw new Error('Result cannot be overwritten. Consider making separate request')
+    }
+    result = value
+}
+
+function getResult() {
+    return result
+}
+
 function makeApp()
 {
     var express = require('express');
@@ -21,33 +38,39 @@ function makeApp()
     })
 
     app.get('/', function (req, res, next) {
-        var operations = JSON.parse(req.query.operations)
-        if (!operations || !Array.isArray(operations)) {
-            throw new Error("Invalid operations")
-        }
-        var result, op, error
+        var _result, op, error
+        var operations = req.query.operations.split("|")
+        unsetResult()
         for (i in operations) {
-            op = operations[i]
+            op = operations[i].split(";")
             error = undefined
-            switch(op.fn) {
+            switch(op[0]) {
                 case 'cidValue':
-                    result = req.cs.cidValue()
+                    _result = req.cs.cidValue()
+                    setResult(_result)
                     break;
                 case 'put':
-                    req.cs.put(op.args.key, op.args.value)
+                    req.cs.put(op[1], op[2])
                     break;
                 case 'get':
                     try {
-                        result = req.cs.get(op.args.key)
+                        _result = req.cs.get(op[1])
                     } catch (e) {
                         error = e
                     }
+                    setResult(_result)
                     break;
                 case 'begin':
+                    var type = undefined, value = undefined
+                    if (op[1]) {
+                        arg = op[1].split("=")
+                        type = arg[0]
+                        value = arg[1]
+                    }
                     try {
-                        if (op.args.join === true) {
+                        if (type === "join" && value === "true") {
                             req.cs.begin({join: true})
-                        } else if (op.args.nested == true) {
+                        } else if (type === "nested" && value === "true") {
                             req.cs.begin({nested: true})
                         } else {
                             req.cs.begin()
@@ -57,8 +80,14 @@ function makeApp()
                     }
                     break
                 case 'end':
+                    var type = undefined, value = undefined
+                    if (op[1]) {
+                        arg = op[1].split("=")
+                        type = arg[0]
+                        value = arg[1]
+                    }
                     try {
-                        if (op.args.root === true) {
+                        if (type === "root" && value === "true") {
                             req.cs.end({root: true})
                         } else {
                             req.cs.end()
@@ -75,7 +104,7 @@ function makeApp()
                 return
             }
         }
-        res.status(200).send(result)
+        res.status(200).send(getResult())
     })
 
     return app;

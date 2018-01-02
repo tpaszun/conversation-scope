@@ -5,41 +5,48 @@ const assert = require('assert')
 
 describe("Conversation scope", function() {
 
-    var app
+    var app, agent
 
     beforeEach(function () {
         app = require('./fixtures/app.js')()
+        agent = request.agent(app)
     })
 
+    function makeRequest(cid = null, data) {
+        var url = '/'
+        if (cid) {
+            url = url + '?cid=' + cid
+        }
+        data = data.join('|')
+        return agent.get(url).query({operations: data})
+    }
+
     it("persist data during one temporary conversation", function(done) {
-        var agent = request.agent(app)
-        agent.get('/').query({operations: JSON.stringify([
-            {fn: 'put', args: {key: 'test', value: 'x001x'}},
-            {fn: 'get', args: {key: 'test'}},
-        ])}).expect('x001x', done)
+        makeRequest(null, [
+            "put;test;x001x",
+            "get;test",
+        ]).expect('x001x', done)
     })
 
     it("can return cid of current conversation (temporary)", function(done) {
-        var agent = request.agent(app)
-        agent.get('/').query({operations: JSON.stringify([
-            {fn: 'cidValue'},
-        ])}).expect(function(res) {
+        makeRequest(null, [
+            "cidValue",
+        ]).expect(function(res) {
             if (!res.text) throw new Error("missing response with cid" + JSON.stringify(res))
         }).end(done)
     })
 
     it("remove data from temporary conversations", function(done) {
-        var agent = request.agent(app)
         async.waterfall([
             function(cb) {
-                agent.get('/').query({operations: JSON.stringify([
-                    {fn: 'put', args: {key: 'test', value: 'x002x'}},
-                ])}).expect(200).end(cb)
+                makeRequest(null, [
+                    "put;test;x002x",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
-                agent.get('/').query({operations: JSON.stringify([
-                    {fn: 'get', args: {key: 'test'}},
-                ])}).expect(function(res) {
+                makeRequest(null, [
+                    "get;test",
+                ]).expect(function(res) {
                     if (res.text) throw new Error("data should be undefined")
                 }).end(cb)
             },
@@ -47,251 +54,239 @@ describe("Conversation scope", function() {
     })
 
     it("can return cid of current conversation (long-running)", function(done) {
-        var agent = request.agent(app)
-        agent.get('/').query({operations: JSON.stringify([
-            {fn: 'begin', args: {}},
-            {fn: 'cidValue', args: {}},
-        ])}).expect(function(res) {
+        makeRequest(null, [
+            "begin",
+            "cidValue",
+        ]).expect(function(res) {
             if (!res.text) throw new Error("missing response with cid")
         }).end(done)
     })
 
     it("persist data after promoting to long-running conversation", function(done) {
-        var agent = request.agent(app)
-        agent.get('/').query({operations: JSON.stringify([
-            {fn: 'put', args: {key: 'test', value: 'x003x'}},
-            {fn: 'begin', args: {}},
-            {fn: 'get', args: {key: 'test'}},
-        ])}).expect('x003x', done)
+        makeRequest(null, [
+            "put;test;x003x",
+            "begin",
+            "get;test",
+        ]).expect('x003x', done)
     })
 
     it("persist data in long-running conversation", function(done) {
-        var agent = request.agent(app)
         var cid = undefined
         async.waterfall([
             function(cb) {
-                agent.get('/').query({operations: JSON.stringify([
-                    {fn: 'put', args: {key: 'test', value: 'x004x'}},
-                    {fn: 'begin', args: {}},
-                    {fn: 'put', args: {key: 'test2', value: 'x008x'}},
-                    {fn: 'cidValue', args: {}},
-                ])}).expect(200).end(cb)
+                makeRequest(null, [
+                    "put;test;x004x",
+                    "begin",
+                    "put;test2;x008x",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 cid = prevRes.text
-                agent.get('/?cid=' + cid).query({operations: JSON.stringify([
-                    {fn: 'get', args: {key: 'test'}},
-                ])}).expect('x004x', cb)
+                makeRequest(cid, [
+                    "get;test",
+                ]).expect('x004x', cb)
             },
             function(prevRes, cb) {
-                agent.get('/?cid=' + cid).query({operations: JSON.stringify([
-                    {fn: 'get', args: {key: 'test2'}},
-                ])}).expect('x008x', cb)
+                makeRequest(cid, [
+                    "get;test2",
+                ]).expect('x008x', cb)
             },
         ], done)
     })
 
     it('throw error after "promoting" already long-running conversation', function(done) {
-        var agent = request.agent(app)
-        agent.get('/').query({operations: JSON.stringify([
-            {fn: 'begin', args: {}},
-            {fn: 'begin', args: {}},
-        ])}).expect(function(res) {
+        makeRequest(null, [
+            "begin",
+            "begin",
+        ]).expect(function(res) {
             if (res.status !== 500) throw new Error("there should be internal server error")
         }).end(done)
     })
 
     it("promote temporary conversation to long-running with 'begin({join: true})'", function(done) {
-        var agent = request.agent(app)
         async.waterfall([
             function(cb) {
-                agent.get('/').query({operations: JSON.stringify([
-                    {fn: 'put', args: {key: 'test', value: 'x006x'}},
-                    {fn: 'begin', args: {'join': true}},
-                    {fn: 'cidValue', args: {}},
-                ])}).expect(200).end(cb)
+                makeRequest(null, [
+                    "put;test;x006x",
+                    "begin;join=true",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 var cid = prevRes.text
-                agent.get('/?cid=' + cid).query({operations: JSON.stringify([
-                    {fn: 'get', args: {key: 'test'}},
-                ])}).expect('x006x', cb)
+                makeRequest(cid, [
+                    "get;test",
+                ]).expect('x006x', cb)
             },
         ], done)
     })
 
     it("do nothing with 'begin({join: true}) when conversation is already long-running'", function(done) {
-        var agent = request.agent(app)
         async.waterfall([
             function(cb) {
-                agent.get('/').query({operations: JSON.stringify([
-                    {fn: 'put', args: {key: 'test', value: 'x007x'}},
-                    {fn: 'begin', args: {}},
-                    {fn: 'begin', args: {'join': true}},
-                    {fn: 'cidValue', args: {}},
-                ])}).expect(200).end(cb)
+                makeRequest(null, [
+                    "put;test;x007x",
+                    "begin",
+                    "begin;join=true",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 var cid = prevRes.text
-                agent.get('/?cid=' + cid).query({operations: JSON.stringify([
-                    {fn: 'get', args: {key: 'test'}},
-                ])}).expect('x007x', cb)
+                makeRequest(cid, [
+                    "get;test",
+                ]).expect('x007x', cb)
             },
         ], done)
     })
 
     it('throw error when creating nested conversation in temporary one', function(done) {
-        var agent = request.agent(app)
-        agent.get('/').query({operations: JSON.stringify([
-            {fn: 'begin', args: {nested: true}},
-        ])}).expect(function(res) {
+        makeRequest(null, [
+            "begin;nested=true",
+        ]).expect(function(res) {
             if (res.status !== 500) throw new Error("there should be internal server error")
         }).end(done)
     })
 
     it('proceed through conversation tree until data found', function(done) {
-        var agent = request.agent(app)
         async.waterfall([
             function(cb) {
-                agent.get('/').query({operations: JSON.stringify([
-                    {fn: 'put', args: {key: 'test', value: 'x009x'}},
-                    {fn: 'begin', args: {}},
-                    {fn: 'cidValue', args: {}},
-                ])}).expect(200).end(cb)
+                makeRequest(null, [
+                    "put;test;x009x",
+                    "begin",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 var cid = prevRes.text
-                agent.get('/?cid=' + cid).query({operations: JSON.stringify([
-                    {fn: 'begin', args: {nested: true}},
-                    {fn: 'cidValue', args: {}},
-                ])}).end(cb)
+                makeRequest(cid, [
+                    "begin;nested=true",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 var cid = prevRes.text
-                agent.get('/?cid=' + cid).query({operations: JSON.stringify([
-                    {fn: 'get', args: {key: 'test'}},
-                ])}).expect('x009x', cb)
+                makeRequest(cid, [
+                    "get;test",
+                ]).expect('x009x', cb)
             },
         ], done)
     })
 
     it("data in nested conversation doesn't override outter data, but shadow it", function(done) {
-        var agent = request.agent(app)
         var firstCid = undefined
         async.waterfall([
             function(cb) {
-                agent.get('/').query({operations: JSON.stringify([
-                    {fn: 'begin', args: {}},
-                    {fn: 'put', args: {key: 'test', value: 'x010x'}},
-                    {fn: 'cidValue', args: {}},
-                ])}).expect(200, cb)
+                makeRequest(null, [
+                    "begin",
+                    "put;test;x010x",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 firstCid = prevRes.text
-                agent.get('/?cid=' + firstCid).query({operations: JSON.stringify([
-                    {fn: 'begin', args: {nested: true}},
-                    {fn: 'put', args: {key: 'test', value: 'x011x'}},
-                    {fn: 'cidValue', args: {}},
-                ])}).end(cb)
+                makeRequest(firstCid, [
+                    "begin;nested=true",
+                    "put;test;x011x",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 var cid = prevRes.text
-                agent.get('/?cid=' + cid).query({operations: JSON.stringify([
-                    {fn: 'get', args: {key: 'test'}},
-                ])}).expect('x011x', cb)
+                makeRequest(cid, [
+                    "get;test",
+                ]).expect('x011x', cb)
             },
             function(prevRes, cb) {
-                agent.get('/?cid=' + firstCid).query({operations: JSON.stringify([
-                    {fn: 'get', args: {key: 'test'}},
-                ])}).expect('x010x', cb)
+                makeRequest(firstCid, [
+                    "get;test",
+                ]).expect('x010x', cb)
             },
         ], done)
     })
 
     it('throw error if calling end() when there is no long-running conversation', function(done) {
-        var agent = request.agent(app)
-        agent.get('/').query({operations: JSON.stringify([
-            {fn: 'end', args: {}},
-        ])}).expect(function(res) {
+        makeRequest(null, [
+            "end",
+        ]).expect(function(res) {
             if (res.status !== 500) throw new Error("there should be internal server error")
         }).end(done)
     })
 
     it('pop conversation on end() and resume outer one', function(done) {
-        var agent = request.agent(app)
         async.waterfall([
             function(cb) {
-                agent.get('/').query({operations: JSON.stringify([
-                    {fn: 'begin', args: {}},
-                    {fn: 'put', args: {key: 'test', value: 'x012x'}},
-                    {fn: 'cidValue', args: {}},
-                ])}).expect(200, cb)
+                makeRequest(null, [
+                    "begin",
+                    "put;test;x012x",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 var cid = prevRes.text
-                agent.get('/?cid=' + cid).query({operations: JSON.stringify([
-                    {fn: 'begin', args: {nested: true}},
-                    {fn: 'put', args: {key: 'test', value: 'x013x'}},
-                    {fn: 'cidValue', args: {}},
-                ])}).end(cb)
+                makeRequest(cid, [
+                    "begin;nested=true",
+                    "put;test;x013x",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 var cid = prevRes.text
-                agent.get('/?cid=' + cid).query({operations: JSON.stringify([
-                    {fn: 'end', args: {}},
-                    {fn: 'get', args: {key: 'test'}},
-                ])}).expect('x012x', cb)
+                makeRequest(cid, [
+                    "end",
+                    "get;test;x013x",
+                ]).expect('x012x', cb)
             },
         ], done)
     })
 
     it('destroy all descendant conversations with end()', function(done) {
-        var agent = request.agent(app)
         var cids = []
         async.waterfall([
             function(cb) {
-                agent.get('/').query({operations: JSON.stringify([
-                    {fn: 'begin', args: {}},
-                    {fn: 'put', args: {key: 'test', value: 'x014x'}},
-                    {fn: 'cidValue', args: {}},
-                ])}).expect(200, cb)
+                makeRequest(null, [
+                    "begin",
+                    "put;test;x014x",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 cids.push(prevRes.text)
-                agent.get('/?cid=' + cids[0]).query({operations: JSON.stringify([
-                    {fn: 'begin', args: {nested: true}},
-                    {fn: 'put', args: {key: 'test', value: 'x015x'}},
-                    {fn: 'cidValue', args: {}},
-                ])}).end(cb)
+                makeRequest(cids[0], [
+                    "begin;nested=true",
+                    "put;test;x015x",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 cids.push(prevRes.text)
-                agent.get('/?cid=' + cids[1]).query({operations: JSON.stringify([
-                    {fn: 'begin', args: {nested: true}},
-                    {fn: 'put', args: {key: 'test', value: 'x016x'}},
-                    {fn: 'cidValue', args: {}},
-                ])}).end(cb)
+                makeRequest(cids[1], [
+                    "begin;nested=true",
+                    "put;test;x016x",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 cids.push(prevRes.text)
-                agent.get('/?cid=' + cids[1]).query({operations: JSON.stringify([
-                    {fn: 'end', args: {}},
-                ])}).expect(200, cb)
+                makeRequest(cids[1], [
+                    "end",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
-                agent.get('/?cid=' + cids[0]).query({operations: JSON.stringify([
-                    {fn: 'get', args: {key: 'test'}},
-                ])}).expect('x014x', cb)
+                makeRequest(cids[0], [
+                    "get;test",
+                ]).expect('x014x', cb)
             },
             function(prevRes, cb) {
-                agent.get('/?cid=' + cids[1]).query({operations: JSON.stringify([
-                    {fn: 'get', args: {key: 'test'}},
-                ])}).expect(500, cb)
+                makeRequest(cids[1], [
+                    "get;test",
+                ]).expect(500, cb)
             },
             function(prevRes, cb) {
-                agent.get('/?cid=' + cids[2]).query({operations: JSON.stringify([
-                    {fn: 'get', args: {key: 'test'}},
-                ])}).expect(500, cb)
+                makeRequest(cids[2], [
+                    "get;test",
+                ]).expect(500, cb)
             },
         ], done)
     })
@@ -301,48 +296,48 @@ describe("Conversation scope", function() {
         var cids = []
         async.waterfall([
             function(cb) {
-                agent.get('/').query({operations: JSON.stringify([
-                    {fn: 'begin', args: {}},
-                    {fn: 'put', args: {key: 'test', value: 'x017x'}},
-                    {fn: 'cidValue', args: {}},
-                ])}).expect(200, cb)
+                makeRequest(null, [
+                    "begin",
+                    "put;test;x017x",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 cids.push(prevRes.text)
-                agent.get('/?cid=' + cids[0]).query({operations: JSON.stringify([
-                    {fn: 'begin', args: {nested: true}},
-                    {fn: 'put', args: {key: 'test', value: 'x018x'}},
-                    {fn: 'cidValue', args: {}},
-                ])}).end(cb)
+                makeRequest(cids[0], [
+                    "begin;nested=true",
+                    "put;test;x018x",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 cids.push(prevRes.text)
-                agent.get('/?cid=' + cids[1]).query({operations: JSON.stringify([
-                    {fn: 'begin', args: {nested: true}},
-                    {fn: 'put', args: {key: 'test', value: 'x019x'}},
-                    {fn: 'cidValue', args: {}},
-                ])}).end(cb)
+                makeRequest(cids[1], [
+                    "begin;nested=true",
+                    "put;test;x019x",
+                    "cidValue",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
                 cids.push(prevRes.text)
-                agent.get('/?cid=' + cids[1]).query({operations: JSON.stringify([
-                    {fn: 'end', args: {root: true}},
-                ])}).expect(200, cb)
+                makeRequest(cids[1], [
+                    "end;root=true",
+                ]).expect(200, cb)
             },
             function(prevRes, cb) {
-                agent.get('/?cid=' + cids[0]).query({operations: JSON.stringify([
-                    {fn: 'get', args: {key: 'test'}},
-                ])}).expect(500, cb)
+                makeRequest(cids[0], [
+                    "get;test",
+                ]).expect(500, cb)
             },
             function(prevRes, cb) {
-                agent.get('/?cid=' + cids[1]).query({operations: JSON.stringify([
-                    {fn: 'get', args: {key: 'test'}},
-                ])}).expect(500, cb)
+                makeRequest(cids[1], [
+                    "get;test",
+                ]).expect(500, cb)
             },
             function(prevRes, cb) {
-                agent.get('/?cid=' + cids[2]).query({operations: JSON.stringify([
-                    {fn: 'get', args: {key: 'test'}},
-                ])}).expect(500, cb)
+                makeRequest(cids[2], [
+                    "get;test",
+                ]).expect(500, cb)
             },
         ], done)
     })
