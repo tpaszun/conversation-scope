@@ -43,18 +43,30 @@ var conversationID = undefined
 var conversationLongType = undefined
 
 /**
+ * @var {string[]} - list of keys, which should be out of conversation scopes
+ */
+var excludedKeys = []
+
+/**
  * Allow to create module middleware with various options
  *
  * @param {object} options Module options
  * @return {function} middleware for using ConversationScope
  */
 ConversationScope.prototype.run = function (req, res, next, config) {
+    // save callbacks
     if (!config.getCallback || !config.putCallback) {
         throw new Error("Configuration must specify get and put callbacks")
     }
-    // save callbacks
     getCallback = config.getCallback
     putCallback = config.putCallback
+    // save excluded keys
+    if (config.excludedKeys) {
+        if(!Array.isArray(config.excludedKeys)) {
+            throw new Error("Excluded keys must be in array")
+        }
+        excludedKeys = config.excludedKeys
+    }
     // add postprocessing middleware
     res.on('finish', postprocess);
     // run preprocessing
@@ -146,13 +158,21 @@ function addMethods()
 {
     var cs = []
     cs['put'] = function(key, value) {
-        var transformedKey = getTransformedKeyForPut(key)
+        var transformedKey = key
+        // check if key is not on excluded list
+        if (excludedKeys.indexOf(key) === -1) {
+            transformedKey = getTransformedKeyForPut(key)
+        }
         var ret = putCallback(transformedKey, value)
         logger.debug('Putting ' + value + ' under ' + transformedKey + ' (' + key + ')')
         return ret
     }
     cs['get'] = function(key) {
-        var transformedKey = getTransformedKeyForGet(key)
+        var transformedKey
+        // check if key is not on excluded list
+        if (excludedKeys.indexOf(key) === -1) {
+            transformedKey = getTransformedKeyForGet(key)
+        }
         var data = getCallback(transformedKey)
         return data
     }
