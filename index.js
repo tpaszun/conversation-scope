@@ -270,7 +270,12 @@ function generateRandomKey(seed)
  * @return {String} Random key
  */
 function initCoversation() {
-    var cid = request.query.cid
+    var cid = undefined
+    if (request.method === "GET") {
+        cid = request.query.cid
+    } else if (request.method === "POST" && request.body && request.body.cid) {
+        cid = request.body.cid
+    }
     if (cid !== undefined) {
         logger.debug('Load long-running conversation ' + cid)
         conversationID = cid

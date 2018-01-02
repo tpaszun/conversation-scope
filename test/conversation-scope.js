@@ -12,13 +12,25 @@ describe("Conversation scope", function() {
         agent = request.agent(app)
     })
 
-    function makeRequest(cid = null, data) {
+    function makeRequest(cid = null, data, method = 'GET') {
         var url = '/'
-        if (cid) {
-            url = url + '?cid=' + cid
-        }
         data = data.join('|')
-        return agent.get(url).query({operations: data})
+        var req = null
+        if (method == 'GET') {
+            var data = {operations: data}
+            if (cid) {
+                data.cid = cid
+            }
+            req = agent.get(url).query(data)
+        } else if (method == 'POST') {
+            if (cid) {
+                url = url + '?cid=' + cid
+            }
+            req = agent.post(url).send({operations: data})
+        } else {
+            throw new Error('Unknown method')
+        }
+        return req
     }
 
     it("persist data during one temporary conversation", function(done) {
