@@ -1,4 +1,4 @@
-var ConversationScope = require('../index.js');
+var ConversationScope = require('../../index.js');
 var express = require('express')
 var NodeSession = require('node-session');
 var path = require('path');
@@ -14,9 +14,16 @@ app.use(function (req, res, next) {
 });
 
 app.use(function (req, res, next) {
-    ConversationScope.preprocess(req, res, next)
-    res.on('finish', ConversationScope.postprocess);
-});
+    var config = {
+        getCallback: function(key) {
+            return req.session.get(key)
+        },
+        putCallback: function(key, value) {
+            return req.session.put(key, value)
+        }
+    }
+    ConversationScope.run(req, res, next, config)
+})
 
 app.get('/begin', function (req, res, next) {
     req.cs.begin()
