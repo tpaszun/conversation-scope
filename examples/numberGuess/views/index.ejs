@@ -1,0 +1,30 @@
+<% include layout/header %>
+
+    <form id="NumberGuessMain" action="/guess" method="POST">
+        <input type="hidden" name="cid" value="<%= cidValue %>"/>
+        <% if (currentGuess) { %>
+            <div class="alert alert-primary" role="alert">
+                <% if (randomNumber > currentGuess) { %>
+                    Higher!
+                <% } else if (randomNumber < currentGuess) { %>
+                    Lower!
+                <% } %>
+            </div>
+        <% } %>
+        <p>
+            I'm thinking of a number between <%= smallest %> and <%= biggest %>.</br>
+            You have <%= remainingGuesses %> guesses.
+
+        </p>
+        <div class="form-group form-inline">
+            <label for="guessNumber">Your guess</label>&nbsp;
+            <input type="text" class="form-control" name="number" placeholder="Enter number" value="<%= currentGuess %>" required>
+        </div>
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary">Guess</button>
+            <a class="btn btn-warning" href="/cheat?cid=<%= cidValue %>" role="button">Cheat</a>
+            <a class="btn btn-danger" href="/giveup?cid=<%= cidValue %>" role="button">Give up</a>
+        </div>
+    </form>
+
+<% include layout/footer %>

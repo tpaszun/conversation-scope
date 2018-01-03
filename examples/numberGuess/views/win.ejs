@@ -1,0 +1,16 @@
+<% include layout/header %>
+
+    <p>
+        Yes, the answer was <%= randomNumber %>.
+        It took you <%= guessCount %> guesses.
+    </p>
+
+    <% if (cheated) { %>
+        <div class="alert alert-danger" role="alert">
+            But you cheated, so it doesn't count!
+        </div>
+    <% } %>
+
+    Would you like to <a href="/">play again</a>?
+
+<% include layout/footer %>
