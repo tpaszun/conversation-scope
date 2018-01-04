@@ -2,12 +2,13 @@ conversation-scope
 ================
 
 This is a [Node.js](https://nodejs.org/en/) module, which **extends** session with *conversation scope* - concept from JBoss.
+It is session agnostic, so it can be integrated with any session module, no matter if it use database to store data or just memory.
 
 [![npm version](https://badge.fury.io/js/conversation-scope.svg)](http://badge.fury.io/js/conversation-scope)
 
 - [Concept](#concept)
 - [Installation](#installation)
-- [Integration](#integration)
+- [Example integration](#example-integration)
 - [API](#api)
 - [License](#license)
 
@@ -41,15 +42,33 @@ You can download module source from [GitHub](https://github.com/koxu1996/convers
 $ npm install conversation-scope
 ```
 
-## Integration
+## Example integration
 
-TODO
+### Express + NodeSession
+
+```js
+...
+
+app.use(function (req, res, next) {
+    session.startSession(req, res, next);
+})
+
+app.use(function (req, res, next) {
+    var config = {
+        getCallback: function(key) {
+            return req.session.get(key)
+        },
+        putCallback: function(key, value) {
+            return req.session.put(key, value)
+        }
+    }
+    ConversationScope.run(req, res, next, config)
+})
+
+...
+```
 
 See examples for reference.
-
-### Proxy
-
-TODO
 
 ## API
 
