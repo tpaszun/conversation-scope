@@ -9,6 +9,7 @@ This is a [Node.js](https://nodejs.org/en/) module, which **extends** session wi
 - [Installation](#installation)
 - [Integration](#integration)
 - [API](#api)
+- [License](#license)
 
 ## Concept
 
@@ -108,3 +109,7 @@ Specifies that a long-running conversation ends. Ending a nested conversation si
 #### req.cs.end({root: true})
 
 Specifies that the root conversation should be destroyed which effectively destroys the entire conversation stack. If the conversation is not nested, the current conversation is simply ended.
+
+## License
+
+[MIT](LICENSE)
