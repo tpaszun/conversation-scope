@@ -48,10 +48,12 @@ var conversationLongType = undefined
 var excludedKeys = []
 
 /**
- * Allow to create module middleware with various options
+ * Run module with the given `options`
  *
+ * @param {object} request Http request object
+ * @param {object} response Http response object
+ * @param {function} next Callback
  * @param {object} options Module options
- * @return {function} middleware for using ConversationScope
  */
 ConversationScope.prototype.run = function (req, res, next, config) {
     // save callbacks
@@ -70,17 +72,18 @@ ConversationScope.prototype.run = function (req, res, next, config) {
     // add postprocessing middleware
     res.on('finish', postprocess);
     // run preprocessing
-    preprocess(req, res, next)
+    preprocess(req, res)
+    // call next
+    next()
 }
 
 /**
  * Preprocess given http request - response
  *
- * @param {Object} request Http request object
- * @param {Object} response Http response object
- * @param {function} callback
+ * @param {object} request Http request object
+ * @param {object} response Http response object
  */
-function preprocess (req, res, callback) {
+function preprocess (req, res) {
     // save reference to request
     request = req
 
@@ -90,8 +93,6 @@ function preprocess (req, res, callback) {
 
     addMethods()
     initCoversation()
-
-    callback()
 };
 
 /**
