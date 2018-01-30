@@ -1,25 +1,25 @@
-var result
+var result;
 
 function unsetResult() {
-    result = undefined
+    result = undefined;
 }
 
 function setResult(value) {
     if (result !== undefined) {
-        throw new Error('Result cannot be overwritten. Consider making separate request')
+        throw new Error('Result cannot be overwritten. Consider making separate request');
     }
-    result = value
+    result = value;
 }
 
 function getResult() {
-    return result
+    return result;
 }
 
 function makeApp()
 {
     var express = require('express');
     var NodeSession = require('node-session');
-    var ConversationScope = require("../../index.js")
+    var ConversationScope = require("../../index-es6.js");
     var path = require('path');
 
     var session = new NodeSession({secret: 'Q3UBzdH9GEfiRCTKbi5MTPyChpzXLsTD'});
@@ -30,105 +30,108 @@ function makeApp()
 
     app.use(function (req, res, next) {
         session.startSession(req, res, next);
-    })
+    });
 
     app.use(function (req, res, next) {
         var config = {
             getCallback: function(key) {
-                return req.session.get(key)
+                return req.session.get(key);
             },
             putCallback: function(key, value) {
-                return req.session.put(key, value)
+                return req.session.put(key, value);
             }
-        }
-        ConversationScope.run(req, res, next, config)
-    })
+        };
+        new ConversationScope(req, res, config);
+
+        next();
+    });
 
     app.get('/', function (req, res, next) {
-        var _result, op, error
-        var operations = req.query.operations.split("|")
-        unsetResult()
-        for (i in operations) {
-            op = operations[i].split(";")
-            error = undefined
+        var _result, op, error;
+        var operations = req.query.operations.split("|");
+        unsetResult();
+        for (var i in operations) {
+            op = operations[i].split(";");
+            error = undefined;
             switch(op[0]) {
                 case 'cidValue':
-                    _result = req.cs.cidValue()
-                    setResult(_result)
+                    _result = req.cs.cidValue();
+                    setResult(_result);
                     break;
                 case 'put':
                     if (op[1] === undefined || op[2] === undefined) {
-                        throw new Error("Missing arguments for put()")
+                        throw new Error("Missing arguments for put()");
                     }
-                    req.cs.put(op[1], op[2])
+                    req.cs.put(op[1], op[2]);
                     break;
                 case 'get':
                     if (op[1] === undefined) {
-                        throw new Error("Missing arguments for get()")
+                        throw new Error("Missing arguments for get()");
                     }
                     try {
-                        _result = req.cs.get(op[1])
+                        _result = req.cs.get(op[1]);
                     } catch (e) {
-                        error = e
+                        error = e;
                     }
-                    setResult(_result)
+                    setResult(_result);
                     break;
                 case 'begin':
-                    var type = undefined, value = undefined
+                    var type = undefined, value = undefined;
                     if (op[1] !== undefined) {
-                        arg = op[1].split("=")
+                        arg = op[1].split("=");
                         // check if arguments are correct
                         if (["join","nested"].indexOf(arg[0]) === -1 || arg[1] === undefined) {
-                            throw new Error("Incorrect arguments for begin()")
+                            throw new Error("Incorrect arguments for begin()");
                         }
-                        type = arg[0]
-                        value = (arg[1] == 'true')
+                        type = arg[0];
+                        value = (arg[1] == 'true');
                     }
                     try {
                         if (type === undefined) {
-                            req.cs.begin()
+                            req.cs.begin();
                         } else if (type === "join") {
-                            req.cs.begin({join: value})
+                            req.cs.begin({join: value});
                         } else if (type === "nested") {
-                            req.cs.begin({nested: value})
+                            req.cs.begin({nested: value});
                         } else {
 
                         }
                     } catch (e) {
-                        error = e
+                        error = e;
                     }
-                    break
+                    break;
                 case 'end':
-                    var type = undefined, value = undefined
+                    type = undefined;
+                    value = undefined;
                     if (op[1] !== undefined) {
-                        arg = op[1].split("=")
+                        arg = op[1].split("=");
                         // check if arguments are correct
                         if (["root"].indexOf(arg[0]) === -1 || arg[1] === undefined) {
-                            throw new Error("Incorrect arguments for end()")
+                            throw new Error("Incorrect arguments for end()");
                         }
-                        type = arg[0]
-                        value = (arg[1] == 'true')
+                        type = arg[0];
+                        value = (arg[1] == 'true');
                     }
                     try {
                         if (type === "root") {
-                            req.cs.end({root: value})
+                            req.cs.end({root: value});
                         } else {
-                            req.cs.end()
+                            req.cs.end();
                         }
                     } catch (e) {
-                        error = e
+                        error = e;
                     }
                     break;
                 default:
-                    throw new Error("Invalid operation type " + op.type)
+                    throw new Error("Invalid operation type " + op.type);
             }
             if (error) {
-                res.status(500).send(error)
-                return
+                res.status(500).send(error);
+                return;
             }
         }
-        res.status(200).send(getResult())
-    })
+        res.status(200).send(getResult());
+    });
 
     return app;
 }
