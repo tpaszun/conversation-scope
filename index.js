@@ -92,7 +92,7 @@ function preprocess (req, res) {
     loadInternalData()
 
     addMethods()
-    initCoversation()
+    initConversation()
 };
 
 /**
@@ -270,7 +270,7 @@ function generateRandomKey(seed)
  * @param {String} seed Seed
  * @return {String} Random key
  */
-function initCoversation() {
+function initConversation() {
     var cid = undefined
     if (request.method === "GET") {
         cid = request.query.cid
