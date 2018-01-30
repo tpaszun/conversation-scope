@@ -32,7 +32,9 @@ The conversation context is active during any request. Most conversations are de
 - At the end of the render response phase of request lifecycle, module stores the contents of a long running conversation context or destroys the contents of a temporary conversation context.
 - By default, conversation context is not propagated, so every request will be processed in a new temporary conversation. If you want to propagate it, you need to explicitly code the conversation id as a request parameter:
 
-    <a href="/page?cid=<% req.cs.cidValue %>">Continue session</a>
+```html
+<a href="/page?cid=<% req.cs.cidValue %>">Continue session</a>
+```
 
 ## Installation
 
