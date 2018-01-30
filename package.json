@@ -1,14 +1,14 @@
 {
   "name": "conversation-scope",
   "version": "1.0.0",
-  "description": "",
+  "description": "Module extending session with conversation scope",
   "main": "index.js",
   "scripts": {
     "test": "./node_modules/.bin/mocha --reporter spec",
     "start": "node index.js"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Andrzej Broński <andrzej1_1@o2.pl>",
+  "license": "MIT",
   "dependencies": {
     "ejs": "^2.5.7",
     "express": "^4.16.2",
