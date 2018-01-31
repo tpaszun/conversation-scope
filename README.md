@@ -146,6 +146,14 @@ Specifies that a long-running conversation ends. Ending a nested conversation si
 
 Specifies that the root conversation should be destroyed which effectively destroys the entire conversation stack. If the conversation is not nested, the current conversation is simply ended.
 
+## Class diagram
+
+![](docs/ClassDiagram.png)
+
+## Sequence diagram
+
+![](docs/SequenceDiagram.png)
+
 ## License
 
 [MIT](LICENSE)
