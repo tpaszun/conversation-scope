@@ -1,27 +1,27 @@
 'use strict';
 
 var Tree = function () {
-    init()
-}
+    init();
+};
 
 /**
  * @type {object} Internal structure describing conversation tree
  */
-var data = undefined;
+var data;
 
 /**
  * Init data structure
  */
 function init() {
-    data = newNode(null, 'root')
+    data = newNode(null, 'root');
 }
 
 /**
  * Restore initial data strucutre
  */
 function reset() {
-    data = undefined
-    init()
+    data = undefined;
+    init();
 }
 
 /**
@@ -31,13 +31,14 @@ function reset() {
  * @param {string} cid Cid
  * @return {object} Node object
  */
-function newNode(parent = null, cid) {
-    var node = {}
-    node['parent'] = parent
-    node['cid'] = cid
-    node['transformedKeys'] = {}
-    node['conversations'] = []
-    return node
+function newNode(parent, cid) {
+    var node = {
+        parent,
+        cid,
+        transformedKeys: {},
+        conversations: []
+    };
+    return node;
 }
 
 /**
@@ -46,11 +47,11 @@ function newNode(parent = null, cid) {
  * @param {object} data Internal strucutre
  */
 function fixParentReferences(data) {
-    var node, subnodes = data['conversations']
+    var node, subnodes = data.conversations;
     for (var i in subnodes) {
-        node = subnodes[i]
-        node['parent'] = data
-        fixParentReferences(node)
+        node = subnodes[i];
+        node.parent = data;
+        fixParentReferences(node);
     }
 }
 
@@ -61,7 +62,7 @@ function fixParentReferences(data) {
  * @return {object|null} Reference to founed node
  */
 function search(cid) {
-    return searchLoop(data, cid)
+    return searchLoop(data, cid);
 }
 
 /**
@@ -73,15 +74,15 @@ function search(cid) {
  */
 function searchLoop(node, cid) {
     // check if we found correct conversation
-    if (node['cid'] === cid) {
-        return node
+    if (node.cid === cid) {
+        return node;
     }
     // if not, then check sub-conversations
     var f = null;
-    for (var i in node['conversations']) {
-        f = searchLoop(node['conversations'][i], cid)
+    for (var i in node.conversations) {
+        f = searchLoop(node.conversations[i], cid);
         if (f !== null) {
-            return f
+            return f;
         }
     }
     // if no results, then return null
@@ -97,11 +98,11 @@ function searchLoop(node, cid) {
 Tree.prototype.addConversation = function (cid, parentCid = 'root') {
     var parentNode = search(parentCid);
     if (parentNode === null) {
-        throw new Error("Conversation with cid " + parentCid + " does not exist")
+        throw new Error("Conversation with cid " + parentCid + " does not exist");
     }
-    var node = newNode(parentNode, cid)
-    parentNode['conversations'].push(node)
-}
+    var node = newNode(parentNode, cid);
+    parentNode.conversations.push(node);
+};
 
 /**
  * Remove data from tree
@@ -111,26 +112,22 @@ Tree.prototype.addConversation = function (cid, parentCid = 'root') {
  */
 Tree.prototype.remove = function (cid = 'root') {
     if (cid === 'root') {
-        reset()
-        return null
+        reset();
+        return null;
     }
     var node = search(cid);
     if (node === null) {
-        throw new Error("Conversation with cid " + cid + " does not exist")
+        throw new Error("Conversation with cid " + cid + " does not exist");
     }
-    var parentNode = node.parent
+    var parentNode = node.parent;
     // this look complex, but it is necessary for keeping correct references
-    parentNode['conversations'] = parentNode['conversations'].filter(
-        function(el) {
-            return el.cid !== cid;
-        }
-    );
+    parentNode.conversations = parentNode.conversations.filter(el => el.cid !== cid);
     // not allow to resume root conv.
     if (parentNode.cid === 'root') {
-        return null
+        return null;
     }
-    return parentNode.cid
-}
+    return parentNode.cid;
+};
 
 /**
  * Add key with transformation to conversation's data
@@ -142,12 +139,12 @@ Tree.prototype.remove = function (cid = 'root') {
  * @throws Will throw an error if conversation does not exist
  */
 Tree.prototype.addTransformedKey = function (cid, key, transformedKey) {
-    var node = search(cid)
+    var node = search(cid);
     if (node === null) {
-        throw new Error("Conversation with cid " + cid + " does not exist")
+        throw new Error("Conversation with cid " + cid + " does not exist");
     }
-    node['transformedKeys'][key] = transformedKey
-}
+    node.transformedKeys[key] = transformedKey;
+};
 
 /**
  * Lookup transformation of key in tree
@@ -160,23 +157,23 @@ Tree.prototype.addTransformedKey = function (cid, key, transformedKey) {
  * @throws Will throw an error if conversation does not exist
  */
 Tree.prototype.getTransformedKey = function (cid, key, recursive) {
-    var node = search(cid)
+    var node = search(cid);
     if (node === null) {
-        throw new Error("Conversation with cid " + cid + " does not exist")
+        throw new Error("Conversation with cid " + cid + " does not exist");
     }
-    var transformatedKey = null
+    var transformatedKey = null;
     while (true) {
-        if (node['transformedKeys'][key] !== undefined) {
-            transformatedKey = node['transformedKeys'][key]
-            break
+        if (node.transformedKeys[key] !== undefined) {
+            transformatedKey = node.transformedKeys[key];
+            break;
         }
         if (recursive === false || node.parent === null) {
-            break
+            break;
         }
-        node = node.parent
+        node = node.parent;
     }
-    return transformatedKey
-}
+    return transformatedKey;
+};
 
 /**
  * Recursively fetch all transformated keys for provided cid
@@ -187,13 +184,13 @@ Tree.prototype.getTransformedKey = function (cid, key, recursive) {
  * @throws Will throw an error if conversation does not exist
  */
 Tree.prototype.getTransformedKeysToTop = function (cid) {
-    var node = search(cid)
+    var node = search(cid);
     if (node == null) {
-        throw new Error("Conversation with cid " + cid + " does not exist")
+        throw new Error("Conversation with cid " + cid + " does not exist");
     }
-    var tranformedKeys = getTransformedKeysToTopLoop(node)
-    return tranformedKeys
-}
+    var tranformedKeys = getTransformedKeysToTopLoop(node);
+    return tranformedKeys;
+};
 
 /**
  * Internal function for recursive getting transformed keys for provided node
@@ -202,22 +199,22 @@ Tree.prototype.getTransformedKeysToTop = function (cid) {
  * @return {string[]} Array of transformated keys
  */
 function getTransformedKeysToTopLoop(mainNode) {
-    var data, result = []
-    data = mainNode['transformedKeys']
+    var data, result = [];
+    data = mainNode.transformedKeys;
     // add keys to result array
     for (var property in data) {
         if (data.hasOwnProperty(property)) {
-            result.push(data[property])
+            result.push(data[property]);
         }
     }
     // check subconversations
-    var subKeys
-    data = mainNode['conversations']
+    var subKeys;
+    data = mainNode.conversations;
     for (var i in data) {
-        subKeys = getTransformedKeysToTopLoop(data[i])
-        result = result.concat(subKeys)
+        subKeys = getTransformedKeysToTopLoop(data[i]);
+        result = result.concat(subKeys);
     }
-    return result
+    return result;
 }
 
 /**
@@ -226,10 +223,10 @@ function getTransformedKeysToTopLoop(mainNode) {
  * @param {string} json JSON
  */
 Tree.prototype.load = function (json) {
-    var rawData = JSON.parse(json)
-    fixParentReferences(rawData)
-    data = rawData
-}
+    var rawData = JSON.parse(json);
+    fixParentReferences(rawData);
+    data = rawData;
+};
 
 /**
  * Return internal data parsed to string
@@ -239,11 +236,11 @@ Tree.prototype.load = function (json) {
 Tree.prototype.export = function () {
     var str = JSON.stringify(data, function(key, value) {
         if (key === 'parent') {
-            return null
+            return null;
         }
-        return value
-    })
-    return str
-}
+        return value;
+    });
+    return str;
+};
 
 module.exports = new Tree();

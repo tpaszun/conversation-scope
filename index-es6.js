@@ -16,7 +16,7 @@ class ConversationScope {
 
         // save callbacks
         if (!config.getCallback || !config.putCallback) {
-            throw new Error("Configuration must specify get and put callbacks")
+            throw new Error("Configuration must specify get and put callbacks");
         }
 
         // save excluded keys
@@ -142,7 +142,7 @@ class ConversationScope {
             this.saveInternalData();
         } else if (join === false) {
             if (this.conversationLongType === true) {
-                throw new Error('Conversation is already long-running')
+                throw new Error('Conversation is already long-running');
             }
         }
         this.conversationLongType = true;
