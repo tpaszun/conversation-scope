@@ -22,6 +22,8 @@ function makeApp()
     var ConversationScope = require("../../index-es6.js");
     var path = require('path');
 
+    var conversationFileStore = require('../../conversationFileStore');
+
     var session = new NodeSession({secret: 'Q3UBzdH9GEfiRCTKbi5MTPyChpzXLsTD'});
     var app = express();
 
@@ -33,15 +35,7 @@ function makeApp()
     });
 
     app.use(function (req, res, next) {
-        var config = {
-            getCallback: function(key) {
-                return req.session.get(key);
-            },
-            putCallback: function(key, value) {
-                return req.session.put(key, value);
-            }
-        };
-        new ConversationScope(req, res, config);
+        new ConversationScope(req, res, conversationFileStore);
 
         next();
     });

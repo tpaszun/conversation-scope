@@ -3,6 +3,8 @@ var express = require('express');
 var NodeSession = require('node-session');
 var path = require('path');
 
+var conversationSessionStore = require('../../conversationSessionStore');
+
 var session = new NodeSession({secret: 'Q3UBzdH9GEfiRCTKbi5MTPyChpzXLsTD'});
 var app = express();
 
@@ -16,18 +18,7 @@ app.use(function (req, res, next) {
 });
 
 app.use(function (req, res, next) {
-    // it is important to copy reference, if you want to use proxy
-    var sess = req.session;
-    var config = {
-        getCallback: function(key) {
-            return sess.get(key);
-        },
-        putCallback: function(key, value) {
-            return sess.put(key, value);
-        },
-        excludedKeys: ['flash.old', 'flash.new']
-    };
-    new ConversationScope(req, res, config);
+    new ConversationScope(req, res, conversationSessionStore(req));
 
     next();
 });
