@@ -193,6 +193,20 @@ Tree.prototype.getTransformedKeysToTop = function (cid) {
 };
 
 /**
+ * Check given cid exists
+ *
+ * @param {string} cid Cid
+ * @return {boolean}
+ */
+Tree.prototype.cidExist = function (cid) {
+    var node = search(cid);
+    if (node === null) {
+        return false;
+    }
+    return true;
+};
+
+/**
  * Internal function for recursive getting transformed keys for provided node
  *
  * @param {object} mainNode Node

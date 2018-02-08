@@ -224,9 +224,14 @@ class ConversationScope {
         }
 
         if (cid !== undefined) {
-            logger.debug('Load long-running conversation ' + cid);
-            this.conversationID = cid;
-            this.conversationLongType = true;
+            if (this.internalData.cidExist(cid)) {
+                logger.debug('Load long-running conversation ' + cid);
+                this.conversationID = cid;
+                this.conversationLongType = true;
+            } else {
+                logger.warn('Cid ' + cid + ' does not exist! Initializing temporary conversation instead.');
+                this.initTemporaryConversation();
+            }
         } else {
             this.initTemporaryConversation();
         }

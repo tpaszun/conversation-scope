@@ -293,12 +293,12 @@ describe("Conversation scope", function() {
             function(prevRes, cb) {
                 makeRequest(cids[1], [
                     "get;test",
-                ]).expect(500, cb);
+                ]).expect('', cb);
             },
             function(prevRes, cb) {
                 makeRequest(cids[2], [
                     "get;test",
-                ]).expect(500, cb);
+                ]).expect('', cb);
             },
         ], done);
     });
@@ -339,17 +339,41 @@ describe("Conversation scope", function() {
             function(prevRes, cb) {
                 makeRequest(cids[0], [
                     "get;test",
-                ]).expect(500, cb);
+                ]).expect('', cb);
             },
             function(prevRes, cb) {
                 makeRequest(cids[1], [
                     "get;test",
-                ]).expect(500, cb);
+                ]).expect('', cb);
             },
             function(prevRes, cb) {
                 makeRequest(cids[2], [
                     "get;test",
-                ]).expect(500, cb);
+                ]).expect('', cb);
+            },
+        ], done);
+    });
+
+    it('skip non-existing cid', function(done) {
+        var non_existing_cid = 'c23423';
+        async.waterfall([
+            function(cb) {
+                makeRequest(non_existing_cid, [
+                    "begin",
+                    "put;test;x030x",
+                    "cidValue",
+                ]).expect(200, cb);
+            },
+            function(prevRes, cb) {
+                var cid = prevRes.text;
+                makeRequest(cid, [
+                    "get;test",
+                ]).expect('x030x', cb);
+            },
+            function(prevRes, cb) {
+                makeRequest(non_existing_cid, [
+                    "get;test",
+                ]).expect('', cb);
             },
         ], done);
     });
