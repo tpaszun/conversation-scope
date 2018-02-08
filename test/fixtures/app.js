@@ -19,7 +19,7 @@ function makeApp()
 {
     var express = require('express');
     var NodeSession = require('node-session');
-    var ConversationScope = require("../../index-es6.js");
+    var ConversationScope = require("../../index.js");
     var path = require('path');
 
     var conversationFileStore = require('../../conversationFileStore');
