@@ -5,6 +5,8 @@ var path = require('path');
 
 var conversationFileStore = require('../../conversationFileStore');
 
+var users = require('./users');
+
 var session = new NodeSession({secret: 'Q3UBzdH9GEfiRCTKbi5MTPyChpzXLsTD'});
 var app = express();
 
@@ -18,11 +20,36 @@ app.use(function (req, res, next) {
 });
 
 app.use(function (req, res, next) {
-    // it is important to copy reference, if you want to use proxy
-    var sess = req.session;
     new ConversationScope(req, res, conversationFileStore);
 
     next();
+});
+
+app.get('/login', function(req, res, next) {
+    res.render('login', {
+        error: null,
+        user: req.session.get('user')
+    });
+});
+
+app.post('/login', function(req, res, next) {
+    var userName = req.body.username;
+    var userPassword = users[req.body.username];
+
+    if (userPassword === undefined || userPassword != req.body.password) {
+        res.render('login', {
+            error: 'Bad username or password',
+            user: req.session.get('user')
+        });
+        return;
+    }
+    req.session.put('user', userName);
+    res.redirect('/');
+});
+
+app.get('/logout', function(req, res, next) {
+    req.session.forget('user');
+    res.redirect('/');
 });
 
 app.get('/', function (req, res, next) {
@@ -54,6 +81,7 @@ app.get('/', function (req, res, next) {
         biggest: biggest,
         remainingGuesses: (maxGuesses-guessCount),
         cidValue: cidValue,
+        user: req.session.get('user')
     });
 });
 
@@ -74,6 +102,7 @@ app.post('/guess', function (req, res, next) {
             randomNumber: randomNumber,
             guessCount: guessCount,
             cheated: cheated,
+            user: req.session.get('user')
         });
         return;
     }
@@ -86,6 +115,7 @@ app.post('/guess', function (req, res, next) {
         res.render('lose', {
             randomNumber: randomNumber,
             guessCount: guessCount,
+            user: req.session.get('user')
         });
         return;
     }
@@ -97,7 +127,8 @@ app.get('/giveup', function (req, res, next) {
     var randomNumber = req.cs.get('randomNumber');
     req.cs.end();
     res.render('giveup', {
-        randomNumber: randomNumber
+        randomNumber: randomNumber,
+        user: req.session.get('user')
     });
 });
 
@@ -108,6 +139,7 @@ app.get('/cheat', function (req, res, next) {
     res.render('cheat', {
         randomNumber: randomNumber,
         cidValue: cidValue,
+        user: req.session.get('user')
     });
 });
 
