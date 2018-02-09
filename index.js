@@ -35,6 +35,9 @@ class ConversationScope {
         this.getCallback = config.getCallback;
         this.putCallback = config.putCallback;
 
+        // bind user provider or use default user provider (no user verification)
+        this.getUser = config.getUser || ( () => null );
+
         // setup tree
         this.internalData = require('./tree.js');
 
@@ -130,7 +133,7 @@ class ConversationScope {
         return this.conversationID;
     }
 
-    begin({ join = false, nested = false } = {}) {
+    begin({ join = false, nested = false, requireAuth = false } = {}) {
         if (nested === true) {
             if (this.conversationLongType === false) {
                 throw new Error('Cannot create nested conversation in temporary one');
@@ -146,6 +149,9 @@ class ConversationScope {
             }
         }
         this.conversationLongType = true;
+        if (requireAuth) {
+            this.put('user', this.getUser());
+        }
         return;
     }
 
@@ -228,6 +234,14 @@ class ConversationScope {
                 logger.debug('Load long-running conversation ' + cid);
                 this.conversationID = cid;
                 this.conversationLongType = true;
+                var conversationUser = this.get('user');
+                if (conversationUser != null) {
+                    logger.debug('Conversation belongs to user ' + conversationUser);
+                    if (conversationUser !== this.getUser()) {
+                        logger.debug('Unauthorized acces to conversation of ' + conversationUser + ' user by ' + this.getUser());
+                        this.initTemporaryConversation();
+                    }
+                }
             } else {
                 logger.warn('Cid ' + cid + ' does not exist! Initializing temporary conversation instead.');
                 this.initTemporaryConversation();

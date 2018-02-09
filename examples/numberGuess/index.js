@@ -20,7 +20,14 @@ app.use(function (req, res, next) {
 });
 
 app.use(function (req, res, next) {
-    new ConversationScope(req, res, conversationFileStore);
+    var config = {
+        getCallback: conversationFileStore.getCallback,
+        putCallback: conversationFileStore.putCallback,
+        excludedKeys: [],
+        getUser: () => req.session.get('user')
+    };
+
+    new ConversationScope(req, res, config);
 
     next();
 });
@@ -47,13 +54,23 @@ app.post('/login', function(req, res, next) {
     res.redirect('/');
 });
 
+app.use(function(req, res, next) {
+    var currentUser = req.session.get('user');
+
+    if (users[currentUser] === undefined) {
+        res.redirect('/login');
+    }
+
+    next();
+});
+
 app.get('/logout', function(req, res, next) {
     req.session.forget('user');
     res.redirect('/');
 });
 
 app.get('/', function (req, res, next) {
-    req.cs.begin({join: true});
+    req.cs.begin({join: true, requireAuth: true});
     var randomNumber = req.cs.get('randomNumber');
     var cidValue = req.cs.cidValue();
     var biggest = 50;
