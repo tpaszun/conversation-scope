@@ -113,6 +113,10 @@ Function in form of `fn(key, value)`, which will be used internally by module in
 
 Specifies the keys which should be excluded from conversation scope and treated like normal data in session.
 
+##### getUser
+
+Function that returns current user identity.
+
 ### req.cs.put(key, value)
 
 Stores in conversation data specified with `key` and `value`.
@@ -137,6 +141,10 @@ Specifies that if a long-running conversation is already in progress, the conver
 
 Specifies that if a long-running conversation is already in progress, a new nested conversation context begins. The nested conversation will end when the next `end()` is encountered, and the outer conversation will resume.
 It is perfectly legal for multiple nested conversations to exist concurrently in the same outer conversation.
+
+#### req.cs.begin({requireAuth: true})
+
+Specifies that conversation requires user authorization. User identity is stored in conversation and verified on each access to conversation.
 
 ### req.cs.end()
 
